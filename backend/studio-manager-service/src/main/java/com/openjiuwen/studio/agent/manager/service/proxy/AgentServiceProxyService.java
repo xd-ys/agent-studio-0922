@@ -112,6 +112,15 @@ import java.util.stream.Collectors;
 public class AgentServiceProxyService {
     private static final String REQUEST_ID = "request-id";
 
+    /**
+     * 转发 runtime/builder 时跳过的入站 header：
+     * host——由 OkHttp 按目标 URL 生成（.icbc 域名入口按 Host 路由，透传入站域名会被入口以 503 拒绝）；
+     * connection/keep-alive/transfer-encoding/content-length——hop-by-hop 与传输层头，由 OkHttp 自行管理；
+     * accept-encoding——交给 OkHttp 自填以保留其透明 gzip 解压。
+     */
+    private static final Set<String> SKIP_OUTBOUND_HEADERS =
+        Set.of("host", "connection", "keep-alive", "transfer-encoding", "content-length", "accept-encoding");
+
     private final AgentRuntimeClient runtimeClient;
 
     private final AgentBuilderClient builderClient;
@@ -810,7 +819,7 @@ public class AgentServiceProxyService {
 
         Request.Builder builder = new Request.Builder();
         headers.forEach((key, value) -> {
-            if (value != null && !value.isEmpty()) {
+            if (value != null && !value.isEmpty() && !SKIP_OUTBOUND_HEADERS.contains(key.toLowerCase())) {
                 builder.addHeader(key, String.join(",", value));
             }
         });
@@ -844,7 +853,7 @@ public class AgentServiceProxyService {
 
         Request.Builder builder = new Request.Builder();
         headers.forEach((key, value) -> {
-            if (value != null && !value.isEmpty()) {
+            if (value != null && !value.isEmpty() && !SKIP_OUTBOUND_HEADERS.contains(key.toLowerCase())) {
                 builder.addHeader(key, String.join(",", value));
             }
         });

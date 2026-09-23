@@ -258,12 +258,17 @@ spec:
             runAsNonRoot: true
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
-      dnsPolicy: ClusterFirst
+      dnsPolicy: Default
       automountServiceAccountToken: false
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+        # root 与 service 同组：将 root 的组（GID 0）加为 service 进程的附加组，
+        # 使 root 属主且对组开放（g±）的文件/目录可被 service 访问。
+        # 注意：仅对带组权限位的资源生效（如 0660/0770/0775），0644/0755 仍无写权限。
+        supplementalGroups:
+          - 0
         seccompProfile:
           type: RuntimeDefault
       imagePullSecrets:

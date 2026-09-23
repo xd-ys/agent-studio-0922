@@ -37,9 +37,9 @@ metadata:
 data:
   backend.conf: |-
     set $server_scheme "http";
-    set $manager_backend "studio-manager.default.svc.cluster.local";
-    set $runtime_backend "studio-runtime.default.svc.cluster.local";
-    set $builder_backend "studio-builder.default.svc.cluster.local";
+    set $manager_backend "jiuwen-manager-c.sdc.cs.icbc";
+    set $runtime_backend "jiuwen-runtime-c.sdc.cs.icbc";
+    set $builder_backend "jiuwen-builder-c.sdc.cs.icbc";
     set $agent_base_backend "agent-base-runtime.default.svc.cluster.local";
   resolver.conf: resolver coredns.kube-system.svc.cluster.local valid=10s;
   nginx.conf: |-
@@ -956,11 +956,16 @@ spec:
                 - ALL
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
-      dnsPolicy: ClusterFirst
+      dnsPolicy: Default
       securityContext:
         runAsUser: 1001
         runAsGroup: 1000
         fsGroup: 1000
+        # root 与 service 同组：将 root 的组（GID 0）加为 service 进程的附加组，
+        # 使 root 属主且对组开放（g±）的文件/目录可被 service 访问。
+        # 注意：仅对带组权限位的资源生效（如 0660/0770/0775），0644/0755 仍无写权限。
+        supplementalGroups:
+          - 0
         seccompProfile:
           type: RuntimeDefault
       imagePullSecrets:
