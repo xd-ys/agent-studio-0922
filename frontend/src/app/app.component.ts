@@ -283,19 +283,22 @@ export class AppComponent implements OnInit {
 
   //如果url参数带用户信息，取出调health接口setCookie，后清除url参数
   async resetUserData() {
-    // iframe SSO 极简接入：客户平台在 iframe src 的 hash 查询串携带 Auth=<token>
-    // （如 #/home/.../?id=xx&Auth=eyJabc...），解析后原样写入 Access-Token Cookie，
-    // 后端 SsoAuthenticationFilter 会按同名 Cookie 提取验证——须早于下方首个
-    // getHealth 执行。契约与限制（有意极简，无安全门控/回读校验/换token处理）：
+    // iframe SSO 极简接入：客户平台在 iframe src 的 hash 查询串携带 access-token=<token>
+    // （如 #/home/.../?id=xx&access-token=eyJabc...），解析后原样写入 access-token
+    // Cookie，后端 SsoAuthenticationFilter 按 auth.sso.header 配置名做大小写不敏感的
+    // Cookie 匹配（默认 Access-Token 与 access-token 忽略大小写相等，无需改后端
+    // 配置），须早于下方首个 getHealth 执行。参数名按大小写不敏感匹配（/i，
+    // 与 HTTP 头名及后端 Cookie 匹配的语义一致），token 值保持原样。
+    // 契约与限制（有意极简，无安全门控/回读校验/换token处理）：
     // 1. token 以 URL 原样（未 percent-encoding）拼入且不含 '&'，否则会截断；
     // 2. 按字符串切分而非 URLSearchParams——后者会把 '+' 解码为空格、'%xx'
     //    解码，静默损坏凭证；
     // 3. 仅适用同站点 http/https 拓扑（默认 Lax 的 Cookie 在跨站 iframe 中
     //    不被请求携带，跨站点部署须 https + SameSite=None，此处未处理）。
-    const authMatch = window.location.hash.match(/([?&])Auth=([^&]*)/);
+    const authMatch = window.location.hash.match(/([?&])access-token=([^&]*)/i);
     if (authMatch && authMatch[2]) {
       const token = authMatch[2];
-      document.cookie = `Access-Token=${token}; path=/`;
+      document.cookie = `access-token=${token}; path=/`;
       // 写入后从地址栏剥除，防凭证驻留历史记录（'?' 边界时保留 '?' 维持
       // hash 查询结构，'&' 边界时整段摘除）
       const stripped =
