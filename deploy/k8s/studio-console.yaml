@@ -178,11 +178,22 @@ data:
     
             #下面误删，用于服务path需要前缀时，替换成：rewrite ^${context_path}/(.*) /$1 last;
             #rewritercontext_path
+            # 附加文根（灰度）：context_path 仅支持单值，额外文根手工加剥离规则。
+            # 注意：本行与注释中勿出现上方占位符字面量（容器启动时 sed 全局替换会误伤）。
+            rewrite ^/agent-customer-gray/(.*) /$1 last;
     
             # 引入 resolver（必须在 server 块内）
             include /home/conf/resolver.conf;
     
             location / {
+                # 域名+文根模式：裸文根入口 /<文根> 或 /<文根>/ 重定向到
+                # /<文根>/openjiuwen/（$request_uri 是文根剥离 rewrite 之前的原始
+                # 请求，可据此还原文根；带查询串时一并保留。动态取首段，
+                # 天然支持多个文根，如 /agent-customer、/agent-customer-gray）。
+                # 未启用文根时该规则仅影响原本就 404 的单段未知路径，不影响域名+端口模式。
+                if ($request_uri ~ "^(/[^/?]+)/?(\?.*)?$") {
+                    return 301 $1/openjiuwen/$2;
+                }
                 rewrite ^/$ /openjiuwen/ permanent;
             }
     
@@ -192,6 +203,11 @@ data:
             }
     
             location = /openjiuwen {
+                # 域名+文根模式：/<文根>/openjiuwen（无尾斜杠）经文根剥离后命中本块，
+                # 用 $request_uri 还原文根重定向，避免 301 丢失前缀导致网关 404
+                if ($request_uri ~ "^(/[^/?]+)/openjiuwen(\?.*)?$") {
+                    return 301 $1/openjiuwen/$2;
+                }
                 rewrite ^/openjiuwen$ /openjiuwen/ permanent;
             }
     
@@ -923,6 +939,16 @@ spec:
         - name: container-studio-console
           image: studio-console:1.0.0.20260526091150.x86_64
           env:
+            # ======== 域名+文根访问模式：console 主文根 ========
+            # 取值即平台网关路由到本服务的一级路径前缀（本例 /agent-customer）。
+            # 生效链路（docker/studio-console/script/start.sh 固定读取小写 context_path，勿改名）：
+            #   1) index.html 中 /openjiuwen/ → /<文根>/openjiuwen/（base href/静态资源前缀）
+            #   2) nginx.conf 中占位符行 → rewrite ^/<文根>/(.*) /$1 last;（文根剥离）
+            #   3) 前端 initPocServiceType 识别首段路径非 openjiuwen，自动为 API/SSE 请求加文根前缀
+            # 要求：以 / 开头、单段、无尾斜杠、不能是 openjiuwen（多级文根前端不支持）。
+            # 附加文根（灰度 /agent-customer-gray）见 ConfigMap 中手工 rewrite，本变量仅支持单值。
+            - name: context_path
+              value: '/agent-customer'
             # DSL 版本对比大 DSL 降级阈值（单侧规范化后文本字节，Monaco 保护阈值），暂定 10MB
             - name: LARGE_DSL_BYTES_THRESHOLD
               value: '10485760'
